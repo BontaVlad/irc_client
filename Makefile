@@ -1,0 +1,2 @@
+all:
+	./nakefile debug-build
