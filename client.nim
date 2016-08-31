@@ -3,7 +3,32 @@ Usage:
   client <host> <port> <nickname>
 """
 
-import net, strutils, docopt
+import
+  net,
+  strutils,
+  docopt,
+  nre,
+  options
+
+# macro curry(f: typed; args: varargs[untyped]): untyped =
+#   let ty = getType(f)
+#   assert($ty[0] == "proc", "first param is not a function")
+#   let n_remaining = ty.len - 2 - args.len
+#   assert n_remaining > 0, "cannot curry all the parameters"
+#   #echo treerepr ty
+
+# var callExpr = newCall(f)
+# args.copyChildrenTo callExpr
+
+# var params: seq[NimNode] = @[]
+# # return type
+# params.add ty[1]
+
+# for i in 0 .. <n_remaining:
+#   let param = ident("arg"& $i)
+#   params.add newIdentDefs(param, ty[i+2+args.len])
+#   callExpr.add param
+#   result = newProc(procType = nnkLambda, params = params, body = callExpr)
 
 const RPL_ENDOFMOTD = "376"
 
@@ -48,18 +73,31 @@ proc after_motd(socket: Socket, callback: proc, args: varargs[string]) =
     if RPL_ENDOFMOTD in input:
       echo "end of motd"
       callback(socket, args)
+      return
 
-proc simple_math(input: string) =
-  discard
+proc simple_math(input: string): string =
+  return input
 
-proc random_number(input: string) =
-  discard
+proc random_number(input: string): string =
+  return input
 
-proc channel_joined(input: string) =
-  discard
+proc channel_joined(input: string): string =
+  let matches = input.match(re":Vlad0397-bot!~Vlad0397-@\d.\d.\d+.\d+ JOIN (#\w+)")
+  echo($matches.get())
+  # if matches:
+  #   echo "found something"
+  # echo "found nothing"
+  # if len(matches) > 0:
+  #   echo matches[0]
+  #   return "PRIVMSG $# :Hello World!" % matches[0]
+  # echo "no matches"
 
-proc react(socket: Socket, input: string, reactions: varargs[proc]) =
-  discard
+proc react[T: proc](socket: Socket, input: string, reactions: varargs[T]) =
+  echo("reacting")
+  var cons: seq[string] = @[]
+  for react in items(reactions):
+    cons.add(react(input))
+  # echo(cons)
 
 proc main() =
   var socket = newSocket()
