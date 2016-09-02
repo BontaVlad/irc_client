@@ -61,32 +61,37 @@ proc after_motd(socket: Socket, callback: proc, args: varargs[string]) =
 proc simple_math(socket: Socket, input: string) =
   let matches = input.match(re":(\w*)!.*PRIVMSG.*:(sum|div|mul|sub) (.*)")
   var res: float = 0.0
+  var res_str: string
 
   if matches.isNone():
     return
   let nickname = matches.get().captures[0]
   let operation = matches.get().captures[1]
   let numbers_str = matches.get().captures[2].split(re"\s")
-  case operation:
-    of "sum":
-      res = 0
-      for num in numbers_str:
-        res += parseFloat(num)
-    of "sub":
-      res = 0
-      for num in numbers_str:
-        res -= parseFloat(num)
-    of "mul":
-      res = 1
-      for num in numbers_str:
-        res *= parseFloat(num)
-    of "div":
-      for num in numbers_str:
-        res /= parseFloat(num)
-    else:
-      discard
+  try:
+    case operation:
+      of "sum":
+        res = 0
+        for num in numbers_str:
+          res += parseFloat(num)
+      of "sub":
+        res = 0
+        for num in numbers_str:
+          res -= parseFloat(num)
+      of "mul":
+        res = 1
+        for num in numbers_str:
+          res *= parseFloat(num)
+      of "div":
+        for num in numbers_str:
+          res /= parseFloat(num)
+      else:
+        discard
+    res_str = $res
+  except ValueError:
+    res_str = "Provide a valid number"
 
-  let cmd = "PRIVMSG $1 $2" % [nickname, $res]
+  let cmd = "PRIVMSG $1 :$2" % [nickname, res_str]
   echo $cmd
   socket.send(cmd & "\r\n")
 
@@ -94,7 +99,7 @@ proc random_number(socket: Socket, input: string) =
   let matches = input.match(re":(\w*)!.*PRIVMSG.*:random")
   if matches.isNone():
     return
-  let cmd = "PRIVMSG $1 $2" % [$matches.get().captures[0], $random(1000)]
+  let cmd = "PRIVMSG $1 :$2" % [$matches.get().captures[0], $random(1000)]
   echo $cmd
   socket.send(cmd & "\r\n")
 
@@ -102,7 +107,7 @@ proc channel_joined(socket: Socket, input: string) =
   let matches = input.match(re(r":$1!~$2@\d.\d.\d+.\d+ JOIN (#\w*-?\w*)" % [nickname, nickname[..8]]))
   if matches.isNone():
     return
-  let cmd = "PRIVMSG $# Hello World!" % $matches.get().captures[0]
+  let cmd = "PRIVMSG $# :Hello World!" % $matches.get().captures[0]
   echo $cmd
   socket.send(cmd & "\r\n")
 
