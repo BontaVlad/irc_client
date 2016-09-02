@@ -6,29 +6,12 @@ Usage:
 import
   net,
   strutils,
+  sequtils,
   docopt,
   nre,
-  options
-
-# macro curry(f: typed; args: varargs[untyped]): untyped =
-#   let ty = getType(f)
-#   assert($ty[0] == "proc", "first param is not a function")
-#   let n_remaining = ty.len - 2 - args.len
-#   assert n_remaining > 0, "cannot curry all the parameters"
-#   #echo treerepr ty
-
-# var callExpr = newCall(f)
-# args.copyChildrenTo callExpr
-
-# var params: seq[NimNode] = @[]
-# # return type
-# params.add ty[1]
-
-# for i in 0 .. <n_remaining:
-#   let param = ident("arg"& $i)
-#   params.add newIdentDefs(param, ty[i+2+args.len])
-#   callExpr.add param
-#   result = newProc(procType = nnkLambda, params = params, body = callExpr)
+  options,
+  random,
+  future
 
 const RPL_ENDOFMOTD = "376"
 
@@ -75,29 +58,57 @@ proc after_motd(socket: Socket, callback: proc, args: varargs[string]) =
       callback(socket, args)
       return
 
-proc simple_math(input: string): string =
-  return input
+proc simple_math(socket: Socket, input: string) =
+  let matches = input.match(re":(\w*)!.*PRIVMSG.*:(sum|div|mul|sub) (.*)")
+  var res: float = 0.0
 
-proc random_number(input: string): string =
-  return input
+  if matches.isNone():
+    return
+  let nickname = matches.get().captures[0]
+  let operation = matches.get().captures[1]
+  let numbers_str = matches.get().captures[2].split(re"\s")
+  case operation:
+    of "sum":
+      res = 0
+      for num in numbers_str:
+        res += parseFloat(num)
+    of "sub":
+      res = 0
+      for num in numbers_str:
+        res -= parseFloat(num)
+    of "mul":
+      res = 1
+      for num in numbers_str:
+        res *= parseFloat(num)
+    of "div":
+      for num in numbers_str:
+        res /= parseFloat(num)
+    else:
+      discard
 
-proc channel_joined(input: string): string =
-  let matches = input.match(re":Vlad0397-bot!~Vlad0397-@\d.\d.\d+.\d+ JOIN (#\w+)")
-  echo($matches.get())
-  # if matches:
-  #   echo "found something"
-  # echo "found nothing"
-  # if len(matches) > 0:
-  #   echo matches[0]
-  #   return "PRIVMSG $# :Hello World!" % matches[0]
-  # echo "no matches"
+  let cmd = "PRIVMSG $1 $2" % [nickname, $res]
+  echo $cmd
+  socket.send(cmd & "\r\n")
+
+proc random_number(socket: Socket, input: string) =
+  let matches = input.match(re":(\w*)!.*PRIVMSG.*:random")
+  if matches.isNone():
+    return
+  let cmd = "PRIVMSG $1 $2" % [$matches.get().captures[0], $random(1000)]
+  echo $cmd
+  socket.send(cmd & "\r\n")
+
+proc channel_joined(socket: Socket, input: string) =
+  let matches = input.match(re(r":$1!~$2@\d.\d.\d+.\d+ JOIN (#\w*-?\w*)" % [nickname, nickname[..8]]))
+  if matches.isNone():
+    return
+  let cmd = "PRIVMSG $# Hello World!" % $matches.get().captures[0]
+  echo $cmd
+  socket.send(cmd & "\r\n")
 
 proc react[T: proc](socket: Socket, input: string, reactions: varargs[T]) =
-  echo("reacting")
-  var cons: seq[string] = @[]
   for react in items(reactions):
-    cons.add(react(input))
-  # echo(cons)
+    react(socket, input)
 
 proc main() =
   var socket = newSocket()
